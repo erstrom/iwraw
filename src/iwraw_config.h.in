@@ -1,0 +1,57 @@
+#ifndef _IWRAW_CONFIG_H_
+#define _IWRAW_CONFIG_H_
+
+#cmakedefine HAVE_STDINT_H
+#cmakedefine HAVE_STDBOOL_H
+#cmakedefine HAVE_STDIO_H
+#cmakedefine HAVE_STDLIB_H
+#cmakedefine HAVE_STRING_H
+#cmakedefine HAVE_ERRNO_H
+
+#cmakedefine HAVE_INT64_T
+#cmakedefine HAVE_INT32_T
+#cmakedefine HAVE_UINT32_T
+#cmakedefine HAVE_UINT16_T
+#cmakedefine HAVE_UINT8_T
+
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+#ifdef HAVE_STDBOOL_H
+#include <stdbool.h>
+#endif
+#ifdef HAVE_STDIO_H
+#include <stdio.h>
+#endif
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
+#ifdef HAVE_STRING_H
+#include <string.h>
+#endif
+#ifdef HAVE_ERRNO_H
+#include <errno.h>
+#endif
+
+#ifndef HAVE_INT64_T
+typedef long long int64_t;
+#endif
+
+#ifndef HAVE_INT32_T
+typedef long int32_t;
+#endif
+
+#ifndef HAVE_UINT32_T
+typedef unsigned long uint32_t;
+#endif
+
+#ifndef HAVE_UINT16_T
+typedef unsigned short uint16_t;
+#endif
+
+#ifndef HAVE_UINT8_T
+typedef unsigned char uint8_t;
+#endif
+
+#endif
+
