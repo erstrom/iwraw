@@ -79,6 +79,22 @@ endif()
 # Prepare build / define targets
 #
 
+set(GIT_SHA_AVAILABLE 0)
+find_program(GIT git)
+
+if (GIT)
+	execute_process(
+		COMMAND ${GIT} log -1 --format=%h
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+		RESULT_VARIABLE GIT_CMD_RESULT
+		OUTPUT_VARIABLE GIT_COMMIT_HASH
+		OUTPUT_STRIP_TRAILING_WHITESPACE
+	)
+	if (NOT GIT_CMD_RESULT)
+		set(GIT_SHA_AVAILABLE 1)
+	endif()
+endif()
+
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/iwraw_config.h.in
                ${CMAKE_CURRENT_BINARY_DIR}/iwraw_config.h)
 

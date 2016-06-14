@@ -40,6 +40,7 @@
 #include <netlink/genl/ctrl.h>
 #include "nl80211.h"
 #include "log.h"
+#include <iwraw_config.h>
 
 #define NLA_INPUT_STREAM_MAX_LEN (1024)
 
@@ -430,7 +431,7 @@ static int run_iwraw(void)
 static void print_usage(char *argv0)
 {
 	fprintf(stderr, "Usage:\n");
-	fprintf(stderr, "%s [ ( --if | --interface ) | --phy ] [ -c | --command ] [ -a | --ascii ] [ -v | --verbose ]\n", argv0);
+	fprintf(stderr, "%s OPTIONS\n", argv0);
 	fprintf(stderr, "\n");
 	fprintf(stderr, "iwraw will read a stream of netlink attributes from stdin, add them to a\n");
 	fprintf(stderr, "netlink message and send the message to the wireless networking subsystem in the kernel.\n");
@@ -450,12 +451,14 @@ static void print_usage(char *argv0)
 	fprintf(stderr, "                     to list all available commands.\n");
 	fprintf(stderr, "  -a, --ascii        ASCII output. Print output in ASCII format\n");
 	fprintf(stderr, "                     instead of binary.\n");
-	fprintf(stderr, "  -v, --verbose      Enable debug prints.\n");
+	fprintf(stderr, "  -v, --verbose      Enable debug prints (each -v option\n");
+	fprintf(stderr, "                     increases the verbosity level)\n");
 	fprintf(stderr, "  --if, --interface  Wireless Network interface. Use this\n");
 	fprintf(stderr, "                     option or --phy\n");
 	fprintf(stderr, "  --phy              Wireless Network phy. Use this option\n");
 	fprintf(stderr, "                     or --if | --interface\n");
-	fprintf(stderr, "  --print-commands   Print all available commands and exits\n");
+	fprintf(stderr, "  --print-commands   Print all available commands and exit\n");
+	fprintf(stderr, "  --version          Print version info and exit.\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "--interface or --phy will read the device index of the interface\n");
 	fprintf(stderr, "and add it to the nla stream in either of the attributes:\n");
@@ -464,6 +467,15 @@ static void print_usage(char *argv0)
 	fprintf(stderr, "If any of these arguments is omitted, the user is responsible\n");
 	fprintf(stderr, "for adding the if index to the input nla stream (if needed).\n");
 	fprintf(stderr, "\n");
+}
+
+static void print_version(void)
+{
+#if GIT_SHA_AVAILABLE
+	fprintf(stderr, "\n%s-%s\n\n", VERSION, GIT_SHA);
+#else
+	fprintf(stderr, "\n%s-\n\n", VERSION);
+#endif
 }
 
 int main(int argc, char **argv)
@@ -478,6 +490,7 @@ int main(int argc, char **argv)
 		{"interface", required_argument, 0, 1001},
 		{"phy", required_argument, 0, 1002},
 		{"print-commands", no_argument, 0, 1003},
+		{"version", no_argument, 0, 1004},
 		{NULL, 0, 0, 0},
 	};
 
@@ -497,6 +510,9 @@ int main(int argc, char **argv)
 			break;
 		case 1003:
 			print_nl80211_cmds();
+			return 0;
+		case 1004:
+			print_version();
 			return 0;
 		case 'a':
 			print_ascii = true;
