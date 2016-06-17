@@ -458,6 +458,7 @@ static void print_usage(char *argv0)
 	fprintf(stderr, "  --phy              Wireless Network phy. Use this option\n");
 	fprintf(stderr, "                     or --if | --interface\n");
 	fprintf(stderr, "  --print-commands   Print all available commands and exit\n");
+	fprintf(stderr, "  --syslog           Log to syslog instead of stderr.\n");
 	fprintf(stderr, "  --version          Print version info and exit.\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "--interface or --phy will read the device index of the interface\n");
@@ -491,6 +492,7 @@ int main(int argc, char **argv)
 		{"phy", required_argument, 0, 1002},
 		{"print-commands", no_argument, 0, 1003},
 		{"version", no_argument, 0, 1004},
+		{"syslog", no_argument, 0, 1005},
 		{NULL, 0, 0, 0},
 	};
 
@@ -514,6 +516,9 @@ int main(int argc, char **argv)
 		case 1004:
 			print_version();
 			return 0;
+		case 1005:
+			log_stderr = false;
+			break;
 		case 'a':
 			print_ascii = true;
 			break;
