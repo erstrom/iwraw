@@ -19,6 +19,7 @@
 #include <netlink/genl/family.h>
 #include <netlink/genl/ctrl.h>
 #include "nl80211.h"
+#include "log.h"
 
 #define NLA_INPUT_STREAM_MAX_LEN (1024)
 
@@ -33,7 +34,10 @@ struct nl80211_state {
 	int nl80211_id;
 };
 
-static bool iw_debug, print_ascii, dev_by_phy, devidx_set, cmd_set;
+int log_level = LOG_WARNING;
+bool log_stderr = true, log_initialized;
+
+static bool print_ascii, dev_by_phy, devidx_set, cmd_set;
 static uint32_t devidx;
 static struct nl80211_state state;
 static uint8_t nla_input_stream[NLA_INPUT_STREAM_MAX_LEN];
@@ -45,21 +49,21 @@ static int nl80211_init(void)
 
 	state.nl_sock = nl_socket_alloc();
 	if (!state.nl_sock) {
-		fprintf(stderr, "Failed to allocate netlink socket.\n");
+		LOG_ERR_("Failed to allocate netlink socket.\n");
 		return -ENOMEM;
 	}
 
 	nl_socket_set_buffer_size(state.nl_sock, 8192, 8192);
 
 	if (genl_connect(state.nl_sock)) {
-		fprintf(stderr, "Failed to connect to generic netlink.\n");
+		LOG_ERR_("Failed to connect to generic netlink.\n");
 		err = -ENOLINK;
 		goto out_handle_destroy;
 	}
 
 	state.nl80211_id = genl_ctrl_resolve(state.nl_sock, "nl80211");
 	if (state.nl80211_id < 0) {
-		fprintf(stderr, "nl80211 not found.\n");
+		LOG_ERR_("nl80211 not found.\n");
 		err = -ENOENT;
 		goto out_handle_destroy;
 	}
@@ -96,6 +100,7 @@ static int error_handler(struct sockaddr_nl *nla, struct nlmsgerr *err,
 {
 	int *ret = arg;
 
+	LOG_DBG_("%s: ret %d\n", __func__, *ret);
 	(void) nla;
 	*ret = err->error;
 
@@ -106,6 +111,7 @@ static int finish_handler(struct nl_msg *msg, void *arg)
 {
 	int *ret = arg;
 
+	LOG_DBG_("%s: ret %d\n", __func__, *ret);
 	(void) msg;
 	*ret = 0;
 
@@ -116,6 +122,7 @@ static int ack_handler(struct nl_msg *msg, void *arg)
 {
 	int *ret = arg;
 
+	LOG_DBG_("%s: ret %d\n", __func__, *ret);
 	(void) msg;
 	*ret = 0;
 
@@ -128,6 +135,7 @@ static int valid_handler(struct nl_msg *msg, void *arg)
 	struct nlattr *head_attr = genlmsg_attrdata(gnlh, 0);
 	int attr_len = genlmsg_attrlen(gnlh, 0);
 
+	LOG_DBG_("%s\n", __func__);
 	(void) arg;
 	if (print_ascii)
 		return write_ascii(1, (uint8_t *) head_attr, attr_len);
@@ -194,10 +202,11 @@ static int prepare_listen_events(void)
 
 static int do_listen_events(void)
 {
-	struct nl_cb *cb = nl_cb_alloc(iw_debug ? NL_CB_DEBUG : NL_CB_DEFAULT);
+	struct nl_cb *cb = nl_cb_alloc((log_level > LOG_WARNING) ?
+				       NL_CB_DEBUG : NL_CB_DEFAULT);
 
 	if (!cb) {
-		fprintf(stderr, "failed to allocate netlink callbacks\n");
+		LOG_ERR_("failed to allocate netlink callbacks\n");
 		return -ENOMEM;
 	}
 
@@ -238,7 +247,8 @@ static void add_nla_stream_to_msg(struct nl_msg *msg, void *nla, size_t nla_len)
 	struct nlattr *tail;
 	struct nlmsghdr *hdr;
 
-	LOG_DBG_("%s: Appending %u bytes of user defined attributes \n", __func__, nla_len);
+	LOG_DBG_("%s: Appending %u bytes of user defined attributes\n",
+		 __func__, nla_len);
 	hdr = nlmsg_hdr(msg);
 	tail = nlmsg_tail(hdr);
 	/* nla is assumed to be padded correctly,
@@ -255,8 +265,10 @@ static int send_recv_nlcmd(void *nla, size_t nla_len)
 	struct nl_cb *s_cb;
 	struct nl_msg *msg;
 
-	if (cur_cmd <= NL80211_CMD_UNSPEC)
+	if (cur_cmd <= NL80211_CMD_UNSPEC) {
+		LOG_ERR_("Unsupported nl command: %d\n", cur_cmd);
 		return 1;
+	}
 
 	if (devidx_set)
 		/* Since devidx is a uint32_t the attribute will consume 8
@@ -265,16 +277,20 @@ static int send_recv_nlcmd(void *nla, size_t nla_len)
 		 */
 		nla_offset = 8;
 
+	LOG_DBG_("%s: Allocating %d bytes for nlmsg\n", __func__,
+		  nla_len + nla_offset + NLMSG_HDRLEN + GENL_HDRLEN);
 	msg = nlmsg_alloc_size(nla_len + nla_offset + NLMSG_HDRLEN + GENL_HDRLEN);
 	if (!msg) {
-		fprintf(stderr, "failed to allocate netlink message\n");
+		LOG_ERR_("failed to allocate netlink message\n");
 		return 2;
 	}
 
-	cb = nl_cb_alloc(iw_debug ? NL_CB_DEBUG : NL_CB_DEFAULT);
-	s_cb = nl_cb_alloc(iw_debug ? NL_CB_DEBUG : NL_CB_DEFAULT);
+	cb = nl_cb_alloc((log_level > LOG_WARNING) ?
+			 NL_CB_DEBUG : NL_CB_DEFAULT);
+	s_cb = nl_cb_alloc((log_level > LOG_WARNING) ?
+			   NL_CB_DEBUG : NL_CB_DEFAULT);
 	if (!cb || !s_cb) {
-		fprintf(stderr, "failed to allocate netlink callbacks\n");
+		LOG_ERR_("failed to allocate netlink callbacks\n");
 		err = 2;
 		goto out;
 	}
@@ -282,6 +298,7 @@ static int send_recv_nlcmd(void *nla, size_t nla_len)
 	genlmsg_put(msg, 0, 0, state.nl80211_id, 0, 0, cur_cmd, 0);
 
 	if (devidx_set) {
+		LOG_DBG_("%s: Adding devidx %d attribute\n", __func__, devidx);
 		if (dev_by_phy)
 			NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, devidx);
 		else
@@ -293,8 +310,10 @@ static int send_recv_nlcmd(void *nla, size_t nla_len)
 	nl_socket_set_cb(state.nl_sock, s_cb);
 
 	err = nl_send_auto_complete(state.nl_sock, msg);
-	if (err < 0)
+	if (err < 0) {
+		LOG_ERR_("nl_send_auto_complete %d\n", err);
 		goto out;
+	}
 
 	err = 1;
 
@@ -311,7 +330,7 @@ static int send_recv_nlcmd(void *nla, size_t nla_len)
 	nlmsg_free(msg);
 	return err;
  nla_put_failure:
-	fprintf(stderr, "building message failed\n");
+	LOG_ERR_("building message failed\n");
 	return 2;
 }
 
@@ -329,14 +348,15 @@ static int validate_nla_stream(uint8_t *buf, size_t buflen)
 	}
 
 	if (!attr_cnt) {
-		fprintf(stderr, "No valid attributes found in the input!\n");
+		LOG_ERR_("No valid attributes found in the input!\n");
 		return -EINVAL;
 	}
 
 	if (remaining)
-		fprintf(stderr, "%d invalid bytes at the end detected of the"
-		        " input. Skipping these..\n", remaining);
+		LOG_WARN_("%d invalid bytes at the end detected of the"
+			  " input. Skipping these..\n", remaining);
 
+	LOG_NOTICE_("Found %d attributes in the input stream\n", attr_cnt);
 	return 0;
 }
 
@@ -469,7 +489,7 @@ int main(int argc, char **argv)
 				cmd_set = true;
 			break;
 		case 'v':
-			iw_debug = true;
+			log_level++;
 			break;
 		case 'h':
 		default:
